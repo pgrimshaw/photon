@@ -1,0 +1,287 @@
+<html>
+<head>
+
+<!-- Resources -->
+<script src="https://cdn.amcharts.com/lib/4/core.js"></script>
+<script src="https://cdn.amcharts.com/lib/4/charts.js"></script>
+<script src="https://cdn.amcharts.com/lib/4/themes/animated.js"></script>
+
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js" type="text/javascript" charset="utf-8"></script>
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+<script>
+var accessToken	= "4c9da94badfea37b6b20c3834b3898d76ca98a79";
+var deviceID	= "4c002f000351353530373132"
+
+var thermoUrl	= "https://api.spark.io/v1/devices/" + deviceID + "/tempf";
+var ledUrl		= "https://api.spark.io/v1/devices/" + deviceID + "/led";
+var cmUrl		= "https://api.spark.io/v1/devices/" + deviceID + "/cm";
+var cm2Url		= "https://api.spark.io/v1/devices/" + deviceID + "/cm2";
+
+var THERMO_REFRESH_PERIOD	= 30000;
+var CM_REFRESH_PERIOD		= 1000;
+
+var chart;
+var chartData;
+var chartOptions;
+var amchart;
+
+google.charts.load('current', {'packages':['gauge']});
+google.charts.setOnLoadCallback(initChart);
+
+function initChart() {
+	chartData = google.visualization.arrayToDataTable([
+		['Label', 'Value'],
+		['Temp.(F)', 0]
+//		['Volume A', 0],
+//		['Volume B', 0]
+	]);
+	chartOptions = {
+		width: 240, height: 240,
+		min: 0,
+		max: 50,
+		majorTicks: ['0', '', '10', '', '20','', '30', '', '40', '', '50'],
+		minorTicks: 5
+	};
+	chart = new google.visualization.Gauge(document.getElementById('chart_div'));
+	chart.draw(chartData, chartOptions);
+}
+
+am4core.ready(function() {
+	// amchart themes
+	am4core.useTheme(am4themes_animated);
+
+	// create amchart instance
+	amchart = am4core.create("amchart_div", am4charts.XYChart3D);
+	amchart.titles.create().text = "";
+
+	// initial amchart data
+	amchart.data = [{
+	  "category": "(A)",
+	  "value1": 0,
+	  "value2": 50
+	}, {
+	  "category": "(B)",
+	  "value1": 0,
+	  "value2": 50
+	}];
+
+	// create amchart axes
+	var categoryAxis = amchart.xAxes.push(new am4charts.CategoryAxis());
+	categoryAxis.dataFields.category = "category";
+	categoryAxis.renderer.grid.template.location = 0;
+	categoryAxis.renderer.grid.template.strokeOpacity = 0;
+	categoryAxis.renderer.labels.template.fontSize = 50;
+	categoryAxis.renderer.labels.template.fontFamily = "Arial";
+	categoryAxis.renderer.labels.template.fontWeight = "bold";
+
+	var valueAxis = amchart.yAxes.push(new am4charts.ValueAxis());
+	valueAxis.renderer.grid.template.strokeOpacity = 0;
+	valueAxis.min = 0;
+	valueAxis.max = 59;
+	valueAxis.strictMinMax = true;
+	valueAxis.renderer.baseGrid.disabled = true;
+	valueAxis.renderer.labels.template.fontSize = 24;
+	valueAxis.renderer.labels.template.fontFamily = "Arial";
+	//valueAxis.renderer.labels.template.fontWeight = "bold";
+	valueAxis.renderer.labels.template.adapter.add("text", function(text) {
+	  if ((text > 50) || (text < 0)) {
+		return "";
+	  }
+	  else {
+		return text;
+	  }
+	})
+
+	// create amchart series
+	var series1 = amchart.series.push(new am4charts.ConeSeries());
+	series1.dataFields.valueY = "value1";
+	series1.dataFields.categoryX = "category";
+	series1.columns.template.width = am4core.percent(80);
+	series1.columns.template.fillOpacity = 0.9;
+	series1.columns.template.strokeOpacity = 1;
+	series1.columns.template.strokeWidth = 2;
+	series1.columns.template.tooltipText = "[font-size: 30;]{valueY} gallons";
+
+	var series2 = amchart.series.push(new am4charts.ConeSeries());
+	series2.dataFields.valueY = "value2";
+	series2.dataFields.categoryX = "category";
+	series2.stacked = true;
+	series2.columns.template.width = am4core.percent(80);
+	series2.columns.template.fill = am4core.color("#000");
+	series2.columns.template.fillOpacity = 0.1;
+	series2.columns.template.stroke = am4core.color("#000");
+	series2.columns.template.strokeOpacity = 0.2;
+	series2.columns.template.strokeWidth = 2;
+
+}); // end am4core.ready()
+
+
+function thermoCallback(data, status){
+	if (status == "success") {
+		temp = parseFloat(data.result);
+		var div = document.getElementById("temperature_div");
+		div.innerHTML = temp.toFixed(1) + "&deg; F";
+		if(temp >= 0) {
+			chartData.setValue(0, 1, temp.toFixed(1));
+			chart.draw(chartData, chartOptions);
+		}
+		setTimeout(getThermoReading, THERMO_REFRESH_PERIOD);
+	}
+	else {
+		alert("There was a problem");
+	}
+}
+
+function getThermoReading(){
+   	$.get(thermoUrl, {access_token: accessToken}, thermoCallback);
+}
+
+function cmCallback(data, status){
+	if (status == "success") {
+		var cm = parseFloat(data.result);
+		var gal = (89 - cm) * 5.0 / 8.0;
+
+		var divA = document.getElementById("volumeA");
+		divA.innerHTML = (cm >= 0) ? gal.toFixed(1) + " gal." : "-- gal.";
+
+		var gal_div = document.getElementById("gal_div");
+		var cm_div = document.getElementById("cm_div");
+		gal_div.innerHTML = "(A)&nbsp;&nbsp;" + ((cm >= 0) ? gal.toFixed(1) + " gallons" : "-- gallons");
+		cm_div.innerHTML = (cm >= 0) ? "(" + cm.toFixed(1) + " cm)" : "&nbsp;";
+		if(cm >= 0) {
+			var v = gal.toFixed(1);
+//			chartData.setValue(1, 1, v);
+//			chart.draw(chartData, chartOptions);
+			amchart.data[0].value1 = v;
+			amchart.data[0].value2 = (50 - v);
+			amchart.invalidateData();
+		}
+		setTimeout(getCmReading(cm2Url, cm2Callback), CM_REFRESH_PERIOD);
+	}
+	else {
+		alert("There was a problem");
+	}
+}
+
+function cm2Callback(data, status){
+	if (status == "success") {
+		var cm = parseFloat(data.result);
+		var gal = (89 - cm) * 5.0 / 8.0;
+
+		var divB = document.getElementById("volumeB");
+		divB.innerHTML = (cm >= 0) ? gal.toFixed(1) + " gal." : "-- gal.";
+
+		var gal_div = document.getElementById("gal2_div");
+		var cm_div = document.getElementById("cm2_div");
+		gal_div.innerHTML = "(B)&nbsp;&nbsp;" + ((cm >= 0) ? gal.toFixed(1) + " gallons" : "-- galllons");
+		cm_div.innerHTML = (cm >= 0) ? "(" + cm.toFixed(1) + " cm)" : "&nbsp;";
+		if(cm >= 0) {
+			var v = gal.toFixed(1);
+//			chartData.setValue(2, 1, v);
+//			chart.draw(chartData, chartOptions);
+			amchart.data[1].value1 = v;
+			amchart.data[1].value2 = (50 - v);
+			amchart.invalidateData();
+		}
+		setTimeout(getCmReading(cmUrl, cmCallback), CM_REFRESH_PERIOD);
+	}
+	else {
+		alert("There was a problem");
+	}
+}
+
+function getCmReading(url, callback){
+   	$.get(url, {access_token: accessToken}, callback);
+}
+
+function ledCallback(data, status){
+	if (status == "success") {
+		if(data.return_value == 1) {
+			var button = document.getElementById("switch_on");
+			button.style = "height:50px; width:75px; font-size:16pt; font-weight:bold; font-family:arial; background-color:lightGreen;";
+			button = document.getElementById("switch_off");
+			button.style = "height:50px; width:75px; font-size:16pt; font-weight:bold; font-family:arial;";
+		}
+		else if(data.return_value == 0) {
+			var button = document.getElementById("switch_on");
+			button.style = "height:50px; width:75px; font-size:16pt; font-weight:bold; font-family:arial;";
+			button = document.getElementById("switch_off");
+			button.style = "height:50px; width:75px; font-size:16pt; font-weight:bold; font-family:arial; background-color:lightPink;";
+		}
+		var div = document.getElementById("led_result_div");
+		div.innerHTML = "";		// listEntries(data);
+	}
+	else {
+		alert("There was a problem");
+	}
+}
+
+function switchOn()
+{
+	clearResult();
+	$.post(ledUrl, {params: "on", access_token: accessToken}, ledCallback);
+}
+
+function switchOff()
+{
+	clearResult();
+	$.post(ledUrl, {params: "off", access_token: accessToken}, ledCallback);
+}
+
+function clearResult()
+{
+	var div = document.getElementById("led_result_div");
+	div.innerHTML = 'waiting for response...';
+}
+
+function listEntries(obj)
+{
+	var rows = [];
+	var entries = Object.entries(obj);
+	for(const [key, value] of entries) {
+		rows.push('<tr><td style="width:50%; font-size:20pt; text-align:right">' + key + ':</td><td style="width:50%; font-size:20pt; text-align:left">' + value + '</td></tr>');
+	}
+	return '<table style="border-spacing:6px">\n' + rows.join("\n") + '\n</table>\n';
+}
+</script>
+</head>
+
+<body>
+<center>
+	<div style="padding:25px; display:none;">
+		<div id="gal_div" style="text-align:center; padding:2px; font-size:44pt; font-weight:bold; font-family:arial">(A) -- gallons</div>
+		<div id="cm_div" style="text-align:center; padding:2px; font-size:24pt; font-weight:bold; font-family:arial">&nbsp;</div>
+		<div style="height:25px;"></div>
+		<div id="gal2_div" style="text-align:center; padding:2px; font-size:44pt; font-weight:bold; font-family:arial">(B) -- gallons</div>
+		<div id="cm2_div" style="text-align:center; padding:2px; font-size:24pt; font-weight:bold; font-family:arial">&nbsp;</div>
+	</div>
+	<div id="temperature_div" style="display:none; text-align:center; padding:25px; font-size:44pt; font-weight:bold; font-family:arial">---&deg; F</div>
+
+    <div id="chart_div" style="width: 240px; height: 240px;"></div>
+    <div id="amchart_div" style="width: 550px; height: 380px;"></div>
+
+	<table style="padding:0px; width:500px;">
+		<tr>
+			<td id="volumeA" style="text-align:center; padding:2px; font-size:30pt; font-weight:bold; font-family:arial">-- gal.</td>
+			<td id="volumeB" style="text-align:center; padding:2px; font-size:30pt; font-weight:bold; font-family:arial">-- gal.</td>
+		</tr>
+	</table>
+	<div style="height:25px"></div>
+
+	<h1>LED Blinker</h1>
+
+	<input type="button" id="switch_on" onClick="switchOn()" value="ON" style="height:50px; width:75px; font-size:16pt; font-weight:bold;"/>
+	&nbsp;&nbsp;&nbsp;
+	<input type="button" id="switch_off" onClick="switchOff()" value="OFF" style="height:50px; width:75px; font-size:16pt; font-weight:bold;"/>
+
+	<div style="height:16px"></div>
+	<div id="led_result_div" style="width:400px; text-align:center; color:red; font-size:20pt;"></div>
+</center>
+<script>
+	getThermoReading();
+	getCmReading(cmUrl, cmCallback);
+</script>
+
+</body>
+</html>

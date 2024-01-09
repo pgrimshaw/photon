@@ -1,0 +1,147 @@
+<html>
+<head>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js" type="text/javascript" charset="utf-8"></script>
+
+<script>
+var accessToken	= "4c9da94badfea37b6b20c3834b3898d76ca98a79";
+var deviceID	= "4c002f000351353530373132"
+
+var thermoUrl	= "https://api.spark.io/v1/devices/" + deviceID + "/tempf";
+var ledUrl		= "https://api.spark.io/v1/devices/" + deviceID + "/led";
+var cmUrl		= "https://api.spark.io/v1/devices/" + deviceID + "/cm";
+var cm2Url		= "https://api.spark.io/v1/devices/" + deviceID + "/cm2";
+
+var THERMO_REFRESH_PERIOD	= 30000;
+var CM_REFRESH_PERIOD		= 1000;
+
+function thermoCallback(data, status){
+	if (status == "success") {
+		temp = parseFloat(data.result);
+		var div = document.getElementById("temperature_div");
+		div.innerHTML = temp.toFixed(1) + "&deg; F";
+		setTimeout(getThermoReading, THERMO_REFRESH_PERIOD);
+	}
+	else {
+		alert("There was a problem");
+	}
+}
+
+function getThermoReading(){
+   	$.get(thermoUrl, {access_token: accessToken}, thermoCallback);
+}
+
+function cmCallback(data, status){
+	if (status == "success") {
+		var cm = parseFloat(data.result);
+		var gal = (89 - cm) * 5.0 / 8.0;
+
+		var gal_div = document.getElementById("gal_div");
+		var cm_div = document.getElementById("cm_div");
+		gal_div.innerHTML = "(A)&nbsp;&nbsp;" + ((cm >= 0) ? gal.toFixed(1) + " gallons" : "-- gallons");
+		cm_div.innerHTML = (cm >= 0) ? "(" + cm.toFixed(1) + " cm)" : "&nbsp;";
+		setTimeout(getCmReading(cm2Url, cm2Callback), CM_REFRESH_PERIOD);
+	}
+	else {
+		alert("There was a problem");
+	}
+}
+
+function cm2Callback(data, status){
+	if (status == "success") {
+		var cm = parseFloat(data.result);
+		var gal = (89 - cm) * 5.0 / 8.0;
+
+		var gal_div = document.getElementById("gal2_div");
+		var cm_div = document.getElementById("cm2_div");
+		gal_div.innerHTML = "(B)&nbsp;&nbsp;" + ((cm >= 0) ? gal.toFixed(1) + " gallons" : "-- galllons");
+		cm_div.innerHTML = (cm >= 0) ? "(" + cm.toFixed(1) + " cm)" : "&nbsp;";
+		setTimeout(getCmReading(cmUrl, cmCallback), CM_REFRESH_PERIOD);
+	}
+	else {
+		alert("There was a problem");
+	}
+}
+
+function getCmReading(url, callback){
+   	$.get(url, {access_token: accessToken}, callback);
+}
+
+function ledCallback(data, status){
+	if (status == "success") {
+		if(data.return_value == 1) {
+			var button = document.getElementById("switch_on");
+			button.style = "height:50px; width:75px; font-size:16pt; font-weight:bold; background-color:lightGreen;";
+			button = document.getElementById("switch_off");
+			button.style = "height:50px; width:75px; font-size:16pt; font-weight:bold;";
+		}
+		else if(data.return_value == 0) {
+			var button = document.getElementById("switch_on");
+			button.style = "height:50px; width:75px; font-size:16pt; font-weight:bold;";
+			button = document.getElementById("switch_off");
+			button.style = "height:50px; width:75px; font-size:16pt; font-weight:bold; background-color:lightPink;";
+		}
+		var div = document.getElementById("led_result_div");
+		div.innerHTML = "";		// listEntries(data);
+	}
+	else {
+		alert("There was a problem");
+	}
+}
+
+function switchOn()
+{
+	clearResult();
+	$.post(ledUrl, {params: "on", access_token: accessToken}, ledCallback);
+}
+
+function switchOff()
+{
+	clearResult();
+	$.post(ledUrl, {params: "off", access_token: accessToken}, ledCallback);
+}
+
+function clearResult()
+{
+	var div = document.getElementById("led_result_div");
+	div.innerHTML = 'waiting for response...';
+}
+
+function listEntries(obj)
+{
+	var rows = [];
+	var entries = Object.entries(obj);
+	for(const [key, value] of entries) {
+		rows.push('<tr><td style="width:50%; font-size:20pt; text-align:right">' + key + ':</td><td style="width:50%; font-size:20pt; text-align:left">' + value + '</td></tr>');
+	}
+	return '<table style="border-spacing:6px">\n' + rows.join("\n") + '\n</table>\n';
+}
+</script>
+</head>
+
+<body>
+<center>
+	<div style="padding:25px;">
+		<div id="gal_div" style="text-align:center; padding:2px; font-size:44pt; font-weight:bold; font-family:arial">(A) -- gallons</div>
+		<div id="cm_div" style="text-align:center; padding:2px; font-size:24pt; font-weight:bold; font-family:arial">&nbsp;</div>
+		<div style="height:25px;"></div>
+		<div id="gal2_div" style="text-align:center; padding:2px; font-size:44pt; font-weight:bold; font-family:arial">(B) -- gallons</div>
+		<div id="cm2_div" style="text-align:center; padding:2px; font-size:24pt; font-weight:bold; font-family:arial">&nbsp;</div>
+	</div>
+	<div id="temperature_div" style="text-align:center; padding:25px; font-size:44pt; font-weight:bold; font-family:arial">---&deg; F</div>
+
+	<h1>LED Blinker</h1>
+
+	<input type="button" id="switch_on" onClick="switchOn()" value="ON" style="height:50px; width:75px; font-size:16pt; font-weight:bold;"/>
+	&nbsp;&nbsp;&nbsp;
+	<input type="button" id="switch_off" onClick="switchOff()" value="OFF" style="height:50px; width:75px; font-size:16pt; font-weight:bold;"/>
+
+	<div style="height:16px"></div>
+	<div id="led_result_div" style="width:400px; text-align:center; color:red; font-size:20pt;"></div>
+</center>
+<script>
+	getThermoReading();
+	getCmReading(cmUrl, cmCallback);
+</script>
+
+</body>
+</html>
