@@ -1,1 +1,89 @@
+<html>
+<head>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js" type="text/javascript" charset="utf-8"></script>
+
+<script>
+var accessToken	= "4c9da94badfea37b6b20c3834b3898d76ca98a79";
+var deviceID	= "310034001047363333343437"
+
+var doorStateUrl	= "https://api.spark.io/v1/devices/" + deviceID + "/doorState";
+var doorOperatorUrl	= "https://api.spark.io/v1/devices/" + deviceID + "/doorOperator";
+
+var REFRESH_PERIOD = 2000;
+
+function doorStateCallback(data, status){
+	if (status == "success") {
+		var doorState = data.result;
+		var div = document.getElementById("doorState_div");
+		div.innerHTML = doorState;
+		setTimeout(getDoorState, REFRESH_PERIOD);
+	}
+	else {
+		alert("There was a problem");
+	}
+}
+
+function getDoorState(){
+   	$.get(doorStateUrl, {access_token: accessToken}, doorStateCallback);
+}
+
+function operateDoorCallback(data, status){
+	var div = document.getElementById("result_div");
+	if (status == "success") {
+		div.innerHTML = "success";			// listEntries(data);
+	}
+	else {
+		div.innerHTML = "there was a problem";
+	}
+}
+
+function operateDoor()
+{
+	clearResult();
+	$.post(doorOperatorUrl, {params: "1", access_token: accessToken}, operateDoorCallback);
+}
+
+function clearResult()
+{
+	var div = document.getElementById("result_div");
+	div.innerHTML = 'waiting...';
+}
+
+function toggleLight()
+{
+	$.post(doorOperatorUrl, {params: "2", access_token: accessToken});
+}
+
+function listEntries(obj)
+{
+	var rows = [];
+	var entries = Object.entries(obj);
+	for(const [key, value] of entries) {
+		rows.push('<tr><td style="width:50%; font-size:20pt; text-align:right">' + key + ':</td><td style="width:50%; font-size:20pt; text-align:left">' + value + '</td></tr>');
+	}
+	return '<table style="border-spacing:6px">\n' + rows.join("\n") + '\n</table>\n';
+}
+</script>
+</head>
+
+<body>
+<center>
+	<div style="font-size:24pt; font-weight:bold; font-family:arial">Door is</div>
+	<div id="doorState_div" style="text-align:center; font-size:24pt; font-weight:bold; font-family:arial">---</div>
+
+	<div style="height:20px"></div>
+	<input type="button" id="operButton" onClick="operateDoor()" value="Open/Close" style="height:50px; width:150px; font-size:16pt; font-weight:bold;"/>
+
+	<div style="height:20px"></div>
+	<div id="result_div" style="width:400px; text-align:center; color:red; font-size:20pt;"></div>
+
+	<div style="height:20px"></div>
+	<input type="button" id="lightButton" onClick="toggleLight()" value="Toggle Light" style="height:50px; width:150px; font-size:16pt; font-weight:bold;"/>
+</center>
+<script>
+	getDoorState();
+</script>
+
+</body>
+</html>
 
