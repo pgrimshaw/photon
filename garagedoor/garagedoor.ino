@@ -8,12 +8,13 @@ SYSTEM_MODE(AUTOMATIC);
 // View logs with CLI using 'particle serial monitor --follow'
 SerialLogHandler logHandler(LOG_LEVEL_INFO);
 
-int PUB_PERIOD = 1000;
+int UPDATE_PERIOD   = 1000;
 
 int doorSensorPin   = D0;
 int doorOperatorPin = D4;
+int doorLightPin    = D5;
 
-unsigned long pubTime;
+unsigned long updateTime;
 
 String doorState = "UNNOWN";
 
@@ -25,13 +26,17 @@ void setup() {
   // Put initialization like pinMode and begin functions here
   pinMode(doorSensorPin, INPUT_PULLUP);
   pinMode(doorOperatorPin, OUTPUT);
+  pinMode(doorLightPin, OUTPUT);
   digitalWrite(doorOperatorPin, LOW);
+  digitalWrite(doorLightPin, LOW);
   
   Particle.variable("doorState", &doorState, STRING);
   Particle.function("doorOperator", doorControl);
   
   // Subscribe to the integration response event
-  Particle.subscribe("hook-response/doorSensor", hookResponseHandler, MY_DEVICES);
+  //Particle.subscribe("hook-response/doorSensor", hookResponseHandler, MY_DEVICES);
+  
+  initializing = false;
 }
 
 // loop() runs over and over again, as quickly as it can execute.
@@ -43,12 +48,12 @@ void loop() {
   // Particle.publish("Hello world!");
   // delay( 10 * 1000 ); // milliseconds and blocking - see docs for more info!
   
-  bool doorIsClosed = digitalRead(doorSensorPin) == 1;
+  bool doorIsClosed = digitalRead(doorSensorPin) == 0;
   doorState = doorIsClosed ? "CLOSED" : "NOT CLOSED";
   
-  Particle.publish("doorSensor", doorState, PRIVATE);
+  //Particle.publish("doorSensor", doorState, PRIVATE);
   
-  delay(PUB_PERIOD);
+  delay(UPDATE_PERIOD);
 }
 
 int doorControl(String command) {
@@ -63,6 +68,12 @@ int doorControl(String command) {
         delay(200);
         digitalWrite(doorOperatorPin, 0);
         operating = false;
+        return 1;
+    }
+    else if (command == "2") {
+        digitalWrite(doorLightPin, 1);
+        delay(200);
+        digitalWrite(doorLightPin, 0);
         return 1;
     }
     else {
