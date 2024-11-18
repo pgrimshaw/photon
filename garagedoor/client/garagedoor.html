@@ -9,18 +9,19 @@ var deviceID	= "310034001047363333343437"
 var doorStateUrl	= "https://api.spark.io/v1/devices/" + deviceID + "/doorState";
 var doorOperatorUrl	= "https://api.spark.io/v1/devices/" + deviceID + "/doorOperator";
 
+var doorState = "---";
 var REFRESH_PERIOD = 2000;
 
 function doorStateCallback(data, status){
 	if (status == "success") {
-		var doorState = data.result;
-		var div = document.getElementById("doorState_div");
-		div.innerHTML = doorState;
-		setTimeout(getDoorState, REFRESH_PERIOD);
+		doorState = data.result;
 	}
 	else {
-		alert("There was a problem");
+		doorState = "---";
 	}
+	var div = document.getElementById("doorState_div");
+	div.innerHTML = doorState;
+	setTimeout(getDoorState, REFRESH_PERIOD);
 }
 
 function getDoorState(){
@@ -28,25 +29,32 @@ function getDoorState(){
 }
 
 function operateDoorCallback(data, status){
-	var div = document.getElementById("result_div");
 	if (status == "success") {
-		div.innerHTML = "success";			// listEntries(data);
+		updateResult("Success!");
+		// listEntries(data);
 	}
 	else {
-		div.innerHTML = "there was a problem";
+		updateResult("There was a problem");
 	}
 }
 
 function operateDoor()
 {
-	clearResult();
-	$.post(doorOperatorUrl, {params: "1", access_token: accessToken}, operateDoorCallback);
+	if(doorState == "---") {
+ 		updateResult("");
+ 		alert("Can't start. Unknown door state");
+ 		return;
+ 	}
+	if((doorState != "CLOSED") || confirm("Do you really want to open door?")) {
+ 		updateResult("waiting...");
+		$.post(doorOperatorUrl, {params: "1", access_token: accessToken}, operateDoorCallback);
+	}
 }
 
-function clearResult()
+function updateResult(text)
 {
 	var div = document.getElementById("result_div");
-	div.innerHTML = 'waiting...';
+	div.innerHTML = text;
 }
 
 function toggleLight()
@@ -86,4 +94,3 @@ function listEntries(obj)
 
 </body>
 </html>
-
